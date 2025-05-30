@@ -4,7 +4,7 @@ from mysql.connector import Error
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QLabel, QTableWidget, QTableWidgetItem, QPushButton,
-    QLineEdit, QListWidget
+    QLineEdit, QListWidget, QRadioButton, QButtonGroup, QMessageBox
 )
 from PyQt6.QtGui import QPixmap
 from datetime import datetime
@@ -15,7 +15,7 @@ DB_NAME = "almox"
 DB_USER = "root"
 DB_PASSWORD = "manulauro5308"
 DB_HOST = "localhost"
-DB_PORT = 3306  # padrão MySQL
+DB_PORT = 3306
 
 
 def get_data_hora_brasilia():
@@ -27,21 +27,137 @@ def get_data_hora_brasilia():
 class AlmoxarifadoApp(QWidget):
     def __init__(self):
         super().__init__()
-
         self.setWindowTitle("Sistema de Almoxarifado")
-        self.setGeometry(100, 100, 700, 750)
-
+        self.setGeometry(100, 100, 800, 800)
         self.matricula_selecionada = None
-
         main_layout = QVBoxLayout()
 
         self.criar_grupo_pesquisa(main_layout)
+        self.criar_grupo_pesquisa_componente(main_layout)
         self.criar_grupo_detalhes(main_layout)
         self.criar_grupo_emprestimos(main_layout)
 
         self.setLayout(main_layout)
+        self.set_cor_fundo("#ffffff")
 
-        self.set_cor_fundo_verde()
+    def criar_grupo_pesquisa_componente(self, layout):
+        """Cria o grupo de pesquisa de componentes"""
+        group = QGroupBox("Pesquisar Componente")
+        vbox = QVBoxLayout()
+
+        self.pesquisa_componente_input = QLineEdit()
+        self.pesquisa_componente_input.setPlaceholderText(
+            "Digite nome ou código do componente"
+        )
+        vbox.addWidget(self.pesquisa_componente_input)
+
+        self.pesquisa_tipo_group = QButtonGroup()
+        hbox = QHBoxLayout()
+
+        self.radio_nome = QRadioButton("Por Nome")
+        self.radio_nome.setChecked(True)
+        self.pesquisa_tipo_group.addButton(self.radio_nome)
+        hbox.addWidget(self.radio_nome)
+
+        self.radio_codigo = QRadioButton("Por Código")
+        self.pesquisa_tipo_group.addButton(self.radio_codigo)
+        hbox.addWidget(self.radio_codigo)
+
+        vbox.addLayout(hbox)
+
+        self.botao_pesquisa_componente = QPushButton("Buscar Componente")
+        self.botao_pesquisa_componente.clicked.connect(
+            self.pesquisar_componente
+        )
+        vbox.addWidget(self.botao_pesquisa_componente)
+
+        self.lista_componentes = QListWidget()
+        self.lista_componentes.itemDoubleClicked.connect(
+            self.selecionar_componente
+        )
+        vbox.addWidget(self.lista_componentes)
+
+        group.setLayout(vbox)
+        layout.addWidget(group)
+
+    def pesquisar_componente(self):
+        termo = self.pesquisa_componente_input.text().strip()
+
+        if not termo:
+            self.lista_componentes.clear()
+            self.lista_componentes.addItem(
+                "Digite um termo para pesquisar"
+            )
+            return
+
+        try:
+            conn = mysql.connector.connect(
+                host=DB_HOST,
+                user=DB_USER,
+                password=DB_PASSWORD,
+                database=DB_NAME
+            )
+            cursor = conn.cursor()
+
+            if self.radio_nome.isChecked():
+                query = """
+                    SELECT id, nome, quantidade
+                    FROM componentes
+                    WHERE LOWER(nome) LIKE LOWER(%s)
+                    ORDER BY nome
+                """
+                param = f"%{termo}%"
+            else:
+                if not termo.isdigit():
+                    self.lista_componentes.clear()
+                    self.lista_componentes.addItem(
+                        "Código deve ser numérico"
+                    )
+                    return
+
+                query = """
+                    SELECT id, nome, quantidade
+                    FROM componentes
+                    WHERE id = %s
+                """
+                param = int(termo)
+
+            cursor.execute(query, (param,))
+            resultados = cursor.fetchall()
+            self.lista_componentes.clear()
+
+            if resultados:
+                for id_comp, nome, qtd in resultados:
+                    self.lista_componentes.addItem(
+                        f"{id_comp} - {nome} (Estoque: {qtd})"
+                    )
+            else:
+                self.lista_componentes.addItem(
+                    "Nenhum componente encontrado"
+                )
+
+            cursor.close()
+            conn.close()
+
+        except Error as e:
+            self.lista_componentes.clear()
+            self.lista_componentes.addItem(
+                f"Erro na pesquisa: {str(e)}"
+            )
+
+    def selecionar_componente(self, item):
+        """Quando um componente é selecionado na lista"""
+        texto = item.text()
+        try:
+            id_componente = texto.split(" - ")[0]
+            self.input_componente.setText(id_componente)
+            self.input_quantidade.setFocus()
+        except (AttributeError, IndexError) as e:
+            QMessageBox.warning(
+                self,
+                "Aviso",
+                f"Erro ao selecionar componente: {str(e)}"
+            )
 
     def criar_grupo_pesquisa(self, layout):
         self.group_pesquisa = QGroupBox("Pesquisar Aluno")
@@ -58,7 +174,9 @@ class AlmoxarifadoApp(QWidget):
         pesquisa_layout.addWidget(self.botao_pesquisa)
 
         self.lista_alunos = QListWidget()
-        self.lista_alunos.itemClicked.connect(self.mostrar_detalhes_aluno)
+        self.lista_alunos.itemClicked.connect(
+            self.mostrar_detalhes_aluno
+        )
         pesquisa_layout.addWidget(self.lista_alunos)
 
         self.group_pesquisa.setLayout(pesquisa_layout)
@@ -86,7 +204,6 @@ class AlmoxarifadoApp(QWidget):
         self.info_layout.addWidget(self.label_email)
 
         detalhes_layout.addLayout(self.info_layout)
-
         self.group_detalhes.setLayout(detalhes_layout)
         layout.addWidget(self.group_detalhes)
 
@@ -97,13 +214,7 @@ class AlmoxarifadoApp(QWidget):
         self.tabela_emprestimos = QTableWidget()
         self.tabela_emprestimos.setColumnCount(5)
         self.tabela_emprestimos.setHorizontalHeaderLabels(
-            [
-                "Quantidade",
-                "Código",
-                "Nome",
-                "Retirada",
-                "Devolução",
-            ]
+            ["Quantidade", "Código", "Nome", "Retirada", "Devolução"]
         )
 
         col_widths = [90, 90, 200, 140, 140]
@@ -113,17 +224,21 @@ class AlmoxarifadoApp(QWidget):
         emprestimos_layout.addWidget(self.tabela_emprestimos)
 
         self.botao_devolver = QPushButton("Registrar Devolução")
-        self.botao_devolver.clicked.connect(self.registrar_devolucao)
+        self.botao_devolver.clicked.connect(
+            self.registrar_devolucao
+        )
         emprestimos_layout.addWidget(self.botao_devolver)
 
         self.input_componente = QLineEdit()
-        self.input_componente.setPlaceholderText("ID do componente")
+        self.input_componente.setPlaceholderText("Nome ou ID do componente")
 
         self.input_quantidade = QLineEdit()
         self.input_quantidade.setPlaceholderText("Quantidade")
 
         self.botao_adicionar = QPushButton("Adicionar Empréstimo")
-        self.botao_adicionar.clicked.connect(self.adicionar_emprestimo)
+        self.botao_adicionar.clicked.connect(
+            self.adicionar_emprestimo
+        )
 
         form_layout = QHBoxLayout()
         form_layout.addWidget(self.input_componente)
@@ -131,7 +246,6 @@ class AlmoxarifadoApp(QWidget):
         form_layout.addWidget(self.botao_adicionar)
 
         emprestimos_layout.addLayout(form_layout)
-
         self.group_emprestimos.setLayout(emprestimos_layout)
         layout.addWidget(self.group_emprestimos)
 
@@ -149,7 +263,9 @@ class AlmoxarifadoApp(QWidget):
         termo = self.pesquisa_input.text().strip()
         if not termo:
             self.lista_alunos.clear()
-            self.lista_alunos.addItem("Digite algo para pesquisar...")
+            self.lista_alunos.addItem(
+                "Digite algo para pesquisar..."
+            )
             return
 
         try:
@@ -174,9 +290,13 @@ class AlmoxarifadoApp(QWidget):
 
             if resultados:
                 for matricula, nome in resultados:
-                    self.lista_alunos.addItem(f"{matricula} - {nome}")
+                    self.lista_alunos.addItem(
+                        f"{matricula} - {nome}"
+                    )
             else:
-                self.lista_alunos.addItem("Nenhum aluno encontrado.")
+                self.lista_alunos.addItem(
+                    "Nenhum aluno encontrado."
+                )
 
             cur.close()
             conn.close()
@@ -208,14 +328,18 @@ class AlmoxarifadoApp(QWidget):
             if aluno:
                 nome, email, foto = aluno
 
-                self.label_matricula.setText(f"Matrícula: {matricula}")
+                self.label_matricula.setText(
+                    f"Matrícula: {matricula}"
+                )
                 self.label_nome.setText(f"Nome: {nome}")
                 self.label_email.setText(f"E-mail: {email}")
 
                 if foto:
                     pixmap = QPixmap()
                     if pixmap.loadFromData(foto):
-                        self.foto_label.setPixmap(pixmap.scaled(100, 100))
+                        self.foto_label.setPixmap(
+                            pixmap.scaled(100, 100)
+                        )
                     else:
                         self.foto_label.setPixmap(
                             QPixmap("default.png").scaled(100, 100)
@@ -254,7 +378,6 @@ class AlmoxarifadoApp(QWidget):
             )
             cur = conn.cursor()
 
-            # Query para pegar a soma dos empréstimos ativos
             query = """
                 SELECT COALESCE(SUM(e.quantidade), 0)
                 FROM emprestimos e
@@ -273,7 +396,6 @@ class AlmoxarifadoApp(QWidget):
             else:
                 cor = "#f08080"  # Vermelho claro - situação crítica
 
-            # Aplicando a cor
             stylesheet = (
                 f"QGroupBox {{ "
                 f"background-color: {cor}; "
@@ -287,7 +409,6 @@ class AlmoxarifadoApp(QWidget):
 
         except Error as e:
             print(f"Erro ao atualizar cor: {e}")
-            # Cor padrão em caso de erro
             self.group_detalhes.setStyleSheet(
                 "QGroupBox { "
                 "background-color: #d0f0c0; "
@@ -345,10 +466,14 @@ class AlmoxarifadoApp(QWidget):
                 hora_dev,
             ) in enumerate(registros):
                 retirada = (
-                    f"{data_ret} {hora_ret}" if data_ret and hora_ret else ""
+                    f"{data_ret} {hora_ret}"
+                    if data_ret and hora_ret
+                    else ""
                 )
                 devolucao = (
-                    f"{data_dev} {hora_dev}" if data_dev and hora_dev else ""
+                    f"{data_dev} {hora_dev}"
+                    if data_dev and hora_dev
+                    else ""
                 )
 
                 self.tabela_emprestimos.setItem(
@@ -375,15 +500,31 @@ class AlmoxarifadoApp(QWidget):
 
     def adicionar_emprestimo(self):
         if not self.matricula_selecionada:
+            QMessageBox.warning(
+                self,
+                "Aviso",
+                "Selecione um aluno primeiro"
+            )
             return
 
-        componente_id = self.input_componente.text().strip()
+        componente = self.input_componente.text().strip()
         quantidade = self.input_quantidade.text().strip()
 
-        if not componente_id or not quantidade.isdigit():
+        if not componente:
+            QMessageBox.warning(
+                self,
+                "Aviso",
+                "Digite o código ou nome do componente"
+            )
             return
 
-        quantidade = int(quantidade)
+        if not quantidade.isdigit() or int(quantidade) <= 0:
+            QMessageBox.warning(
+                self,
+                "Aviso",
+                "Quantidade deve ser um número positivo"
+            )
+            return
 
         try:
             conn = mysql.connector.connect(
@@ -395,46 +536,89 @@ class AlmoxarifadoApp(QWidget):
             )
             cur = conn.cursor()
 
+            # Verifica se é número (ID) ou texto (nome)
+            if componente.isdigit():
+                cur.execute(
+                    "SELECT id, quantidade FROM componentes WHERE id = %s",
+                    (componente,)
+                )
+            else:
+                cur.execute(
+                    """SELECT id, quantidade FROM componentes
+                    WHERE nome LIKE %s LIMIT 1""",
+                    (f"%{componente}%",)
+                )
+
+            resultado = cur.fetchone()
+            if not resultado:
+                QMessageBox.warning(
+                    self,
+                    "Aviso",
+                    "Componente não encontrado"
+                )
+                return
+
+            componente_id, qtd_disponivel = resultado
+
+            if int(quantidade) > qtd_disponivel:
+                QMessageBox.warning(
+                    self,
+                    "Aviso",
+                    f"Quantidade indisponível (estoque: {qtd_disponivel})"
+                )
+                return
+
+            # Obtém ID do aluno
             cur.execute(
                 "SELECT id FROM alunos WHERE matricula = %s",
                 (self.matricula_selecionada,),
-                )
-            aluno_id_row = cur.fetchone()
-            if not aluno_id_row:
-                return
-            aluno_id = aluno_id_row[0]
+            )
+            aluno_id = cur.fetchone()[0]
 
+            # Registra o empréstimo
             agora = datetime.now(timezone("America/Sao_Paulo"))
-            data_emprestimo = agora.date()
-            hora_emprestimo = agora.time().replace(microsecond=0)
+            data = agora.date()
+            hora = agora.time().replace(microsecond=0)
 
-            query = (
-                "INSERT INTO emprestimos "
-                "(aluno_id, componente_id, "
-                "quantidade, data_emprestimo, hora_emprestimo) "
-                "VALUES (%s, %s, %s, %s, %s)"
-            )
             cur.execute(
-                query,
-                (
-                    aluno_id,
-                    componente_id,
-                    quantidade,
-                    data_emprestimo,
-                    hora_emprestimo,
-                ),
+                """INSERT INTO emprestimos
+                (aluno_id, componente_id,
+                quantidade, data_emprestimo, hora_emprestimo)
+                VALUES (%s, %s, %s, %s, %s)""",
+                (aluno_id, componente_id, quantidade, data, hora),
             )
+
+            # Atualiza o estoque
+            cur.execute(
+                "UPDATE componentes SET quantidade = quantidade"
+                "- %s WHERE id = %s",
+                (quantidade, componente_id)
+            )
+
             conn.commit()
             cur.close()
             conn.close()
 
+            # Atualiza a interface
             self.carregar_emprestimos(self.matricula_selecionada)
-            self.atualizar_cor_fundo_por_quantidade(self.matricula_selecionada)
+            self.atualizar_cor_fundo_por_quantidade(
+                self.matricula_selecionada
+            )
             self.input_componente.clear()
             self.input_quantidade.clear()
 
+            QMessageBox.information(
+                self,
+                "Sucesso",
+                "Empréstimo registrado!"
+            )
+
         except Error as e:
-            print(f"Erro ao adicionar empréstimo: {e}")
+            QMessageBox.critical(
+                self,
+                "Erro",
+                f"Erro ao adicionar empréstimo: {e}"
+            )
 
     def registrar_devolucao(self):
         if not self.matricula_selecionada:
@@ -485,11 +669,30 @@ class AlmoxarifadoApp(QWidget):
                 ),
             )
             conn.commit()
+
+            # Atualiza a quantidade disponível do componente
+            cur.execute(
+                "SELECT quantidade FROM emprestimos "
+                "WHERE aluno_id = %s AND componente_id = %s "
+                "AND data_devolucao = %s LIMIT 1",
+                (aluno_id, codigo, data_devolucao)
+            )
+            quantidade = cur.fetchone()[0]
+
+            cur.execute(
+                "UPDATE componentes SET quantidade = quantidade + %s "
+                "WHERE id = %s",
+                (quantidade, codigo)
+            )
+            conn.commit()
+
             cur.close()
             conn.close()
 
             self.carregar_emprestimos(self.matricula_selecionada)
-            self.atualizar_cor_fundo_por_quantidade(self.matricula_selecionada)
+            self.atualizar_cor_fundo_por_quantidade(
+                self.matricula_selecionada
+            )
 
         except Error as e:
             print(f"Erro ao registrar devolução: {e}")
