@@ -194,4 +194,213 @@ almox/
 ├── app.py                # Código principal
 ├── requirements.txt      # Bibliotecas (pip freeze > requirements.txt)
 └── img/                  # Pasta para fotos (opcional)
-Com este tutorial, seu sistema estará completo! Se precisar de ajustes, estou à disposição. 
+
+
+Configuração Completa de Permissões no MySQL para o Sistema de Almoxarifado
+🔐 Passo a Passo para Configurar Permissões no MySQL
+1. Acessando o MySQL como Administrador
+Abra o terminal (Linux/Mac) ou Prompt de Comando (Windows) e execute:
+
+bash
+mysql -u root -p
+Digite a senha do root quando solicitado.
+
+2. Criando um Usuário Dedicado para a Aplicação
+Recomendado para segurança (substitua 'senha_forte' por uma senha segura):
+
+sql
+CREATE USER 'almox_user'@'localhost' IDENTIFIED BY 'senha_forte';
+3. Concedendo Permissões Específicas
+Para garantir que o usuário tenha acesso apenas ao banco almox com privilégios necessários:
+
+sql
+GRANT ALL PRIVILEGES ON almox.* TO 'almox_user'@'localhost';
+FLUSH PRIVILEGES;
+4. Permissões Adicionais (Caso Necessário)
+Se a aplicação precisar criar/dropar tabelas (para desenvolvimento):
+
+sql
+GRANT CREATE, DROP, ALTER ON almox.* TO 'almox_user'@'localhost';
+5. Verificando as Permissões
+sql
+SHOW GRANTS FOR 'almox_user'@'localhost';
+6. Atualizando o Código Python
+No arquivo app.py, atualize as credenciais:
+
+python
+DB_USER = "almox_user"       # Usuário dedicado
+DB_PASSWORD = "senha_forte"  # Senha definida
+🛡 Boas Práticas de Segurança
+1. Restrição de Acesso por IP
+Se a aplicação rodar em um servidor específico:
+
+sql
+CREATE USER 'almox_user'@'192.168.1.100' IDENTIFIED BY 'senha_forte';
+GRANT ALL ON almox.* TO 'almox_user'@'192.168.1.100';
+2. Permissões Mínimas Necessárias
+Para produção, restrinja apenas às operações essenciais:
+
+sql
+GRANT SELECT, INSERT, UPDATE ON almox.* TO 'almox_user'@'localhost';
+3. Revogando Permissões
+Se precisar remover acesso:
+
+sql
+REVOKE ALL PRIVILEGES ON almox.* FROM 'almox_user'@'localhost';
+🔄 Configurando o DBeaver com o Novo Usuário
+Abra o DBeaver e crie uma nova conexão:
+
+Host: localhost
+
+Usuário: almox_user
+
+Senha: senha_forte
+
+Banco: almox
+
+Teste a conexão clicando em "Test Connection".
+
+🚨 Solução de Problemas Comuns
+Problema	Causa	Solução
+Acesso negado	Credenciais incorretas	Verifique usuário/senha no MySQL
+Sem privilégios	Permissões insuficientes	Execute GRANT ALL novamente
+Conexão recusada	MySQL não está rodando	Reinicie o serviço MySQL
+📌 Exemplo Prático no Código
+python
+def conectar_banco():
+    try:
+        conn = mysql.connector.connect(
+            host=DB_HOST,
+            user=DB_USER,      # Usuário com permissões
+            password=DB_PASSWORD,
+            database=DB_NAME,
+            port=DB_PORT
+        )
+        return conn
+    except Error as e:
+        print(f"Erro de conexão: {e}")
+        return None
+
+Configuração Completa do VS Code para o Projeto de Almoxarifado
+🛠 Instalação e Configuração das Bibliotecas no VS Code
+1. Abrindo o Projeto no VS Code
+Crie uma pasta para seu projeto
+
+Abra o VS Code e selecione "File > Open Folder" (ou arraste a pasta para o VS Code)
+
+2. Criando um Ambiente Virtual (Recomendado)
+bash
+python -m venv venv
+Ativando o ambiente:
+
+Windows:
+
+bash
+.\venv\Scripts\activate
+Mac/Linux:
+
+bash
+source venv/bin/activate
+3. Instalando as Bibliotecas Necessárias
+No terminal do VS Code (com o ambiente virtual ativado):
+
+bash
+pip install mysql-connector-python PyQt6 pytz
+4. Configurando o Interpretador Python
+Pressione Ctrl+Shift+P (ou Cmd+Shift+P no Mac)
+
+Digite "Python: Select Interpreter"
+
+Selecione o interpretador do seu ambiente virtual (geralmente na pasta venv)
+
+⚙️ Configurações Recomendadas para o VS Code
+1. Extensões Essenciais
+Instale estas extensões pelo marketplace do VS Code:
+
+Python (oficial da Microsoft)
+
+Pylance (para autocompletar código)
+
+MySQL (opcional, para gerenciamento do banco)
+
+Python Indent (para indentação correta)
+
+Qt for Python (suporte ao PyQt)
+
+2. Configuração do settings.json
+Pressione Ctrl+, para abrir as configurações e adicione:
+
+json
+{
+    "python.linting.enabled": true,
+    "python.linting.flake8Enabled": true,
+    "python.formatting.provider": "autopep8",
+    "python.linting.pylintEnabled": false,
+    "editor.rulers": [80],
+    "files.autoSave": "afterDelay"
+}
+3. Executando o Código com Debug
+Crie um arquivo launch.json na pasta .vscode:
+
+json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Almoxarifado",
+            "type": "python",
+            "request": "launch",
+            "program": "app.py",
+            "console": "integratedTerminal"
+        }
+    ]
+}
+Pressione F5 para executar com debug
+
+📦 Gerenciando Dependências
+1. Criando requirements.txt
+bash
+pip freeze > requirements.txt
+2. Instalando de requirements.txt
+bash
+pip install -r requirements.txt
+🔍 Dicas para Trabalhar com PyQt no VS Code
+1. Atalhos Úteis
+Ctrl+P: Buscar arquivos
+
+Ctrl+Shift+P: Command Palette
+
+Ctrl+Shift+E: Explorer de arquivos
+
+Ctrl+: Abrir terminal integrado
+
+2. Recursos Específicos para PyQt
+Use o Qt Designer para criar interfaces (.ui) e converta para Python:
+
+bash
+pyuic6 design.ui -o design.py
+Para recarregar automaticamente as mudanças na interface durante o desenvolvimento, adicione:
+
+python
+def showEvent(self, event):
+    self.update_ui()
+🐛 Solução de Problemas Comuns
+Problema	Solução
+ImportError: No module named	Verifique se o ambiente virtual está ativado
+PyQt6 não encontrado	Reinstale com pip install PyQt6
+Erros de linting	Configure o Flake8 conforme acima
+Janela não aparece	Verifique se há app.exec() no final
+🚀 Fluxo de Trabalho Recomendado
+Ative o ambiente virtual
+
+Edite o código no VS Code
+
+Use o terminal integrado para executar:
+
+bash
+python app.py
+Para depuração, pressione F5
+
+Use Git para controle de versão (extensão GitLens é útil)
+
+Com esta configuração, você terá um ambiente de desenvolvimento completo para trabalhar no sistema de almoxarifado com todas as ferramentas necessárias já integradas no VS Code!
