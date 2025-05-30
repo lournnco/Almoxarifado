@@ -1,0 +1,197 @@
+Tutorial Completo: Sistema de Almoxarifado com Python, VS Code, MySQL e DBeaver
+📋 Sumário
+Instalação das Ferramentas
+
+Configuração do Ambiente no VS Code
+
+Instalação das Bibliotecas Python
+
+Configuração do MySQL via DBeaver
+
+Estrutura do Código Explicada
+
+Execução do Sistema
+
+🛠 Instalação das Ferramentas
+1. VS Code (Editor de Código)
+Download: code.visualstudio.com
+
+Instalação:
+
+Execute o instalador e siga os passos padrão.
+
+Marque as opções:
+
+"Adicionar ao PATH" (para abrir via terminal)
+
+"Abrir com VS Code" em arquivos .py
+
+2. Python 3.8+
+Download: python.org/downloads
+
+Instalação:
+
+Marque "Add Python to PATH" durante a instalação.
+
+Verifique no terminal:
+
+bash
+python --version
+3. MySQL Server
+Download: dev.mysql.com/downloads
+
+Escolha MySQL Community Server.
+
+Instalação:
+
+Siga o instalador padrão.
+
+Anote a senha do root (será usada no DBeaver).
+
+4. DBeaver (Gerenciador de Bancos de Dados)
+Download: dbeaver.io/download
+
+Instalação:
+
+Versão Community (gratuita).
+
+Execute o instalador e abra o programa.
+
+⚙️ Configuração do Ambiente no VS Code
+1. Extensões Recomendadas
+Abra o VS Code e instale:
+
+Python (oficial da Microsoft)
+
+Pylance (para autocompletar código)
+
+MySQL (opcional, para conexão direta)
+
+2. Criando um Projeto
+Abra uma pasta vazia no VS Code.
+
+Crie um arquivo chamado app.py.
+
+Pressione Ctrl + Shift + P e digite "Python: Select Interpreter" para escolher seu Python instalado.
+
+📦 Instalação das Bibliotecas Python
+1. Via Terminal do VS Code
+Abra o terminal integrado (`Ctrl + ``) e execute:
+
+bash
+pip install mysql-connector-python PyQt6 pytz
+2. Verificando as Instalações
+bash
+pip show mysql-connector-python PyQt6
+(Deve mostrar as versões instaladas)
+
+🗃 Configuração do MySQL via DBeaver
+1. Criando uma Conexão
+Abra o DBeaver.
+
+Clique em "New Database Connection" (ícone de plug).
+
+Selecione MySQL.
+
+Preencha:
+
+Host: localhost
+
+Port: 3306
+
+Username: root
+
+Password: (senha que você definiu na instalação do MySQL)
+
+2. Criando o Banco de Dados
+Clique com o botão direito em "Databases" → "Create" → "Database".
+
+Nomeie como almox.
+
+Execute o SQL abaixo (em "SQL Editor"):
+
+sql
+USE almox;
+
+CREATE TABLE alunos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    matricula VARCHAR(20) UNIQUE NOT NULL,
+    nome VARCHAR(100) NOT NULL,
+    email VARCHAR(100),
+    foto LONGBLOB
+);
+
+CREATE TABLE componentes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    quantidade INT DEFAULT 0
+);
+
+CREATE TABLE emprestimos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    aluno_id INT NOT NULL,
+    componente_id INT NOT NULL,
+    quantidade INT NOT NULL,
+    data_emprestimo DATE NOT NULL,
+    hora_emprestimo TIME NOT NULL,
+    data_devolucao DATE,
+    hora_devolucao TIME,
+    FOREIGN KEY (aluno_id) REFERENCES alunos(id),
+    FOREIGN KEY (componente_id) REFERENCES componentes(id)
+);
+🧩 Estrutura do Código Explicada
+1. Estrutura Básica
+python
+# Importações
+import sys
+from PyQt6.QtWidgets import QApplication, QMainWindow
+
+class AlmoxarifadoApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Almoxarifado")
+        self.show()
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = AlmoxarifadoApp()
+    sys.exit(app.exec())
+2. Partes Principais
+Seção	Descrição
+Conexão com MySQL	Usa mysql.connector para conectar ao banco.
+Interface Gráfica	Criada com PyQt6 (QVBoxLayout, QTableWidget, etc.).
+Lógica de Cores	Muda o fundo conforme a quantidade de empréstimos.
+Métodos CRUD	pesquisar_aluno(), adicionar_emprestimo(), etc.
+🚀 Execução do Sistema
+1. Iniciando o Banco de Dados
+Certifique-se que o MySQL Server está rodando (via XAMPP ou serviço Windows).
+
+2. Rodando a Aplicação
+No terminal do VS Code:
+
+bash
+python app.py
+3. Fluxo de Uso
+Pesquise um aluno por matrícula/nome.
+
+Selecione o aluno na lista.
+
+Adicione empréstimos com:
+
+ID do componente
+
+Quantidade
+
+Visualize o status (cores automáticas).
+
+🔍 Solução de Problemas Comuns
+Erro	Solução
+"Access denied" no MySQL	Verifique usuário/senha no DBeaver.
+PyQt6 não instalado	Execute pip install PyQt6 novamente.
+App não abre	Verifique se há erros no terminal.
+📂 Estrutura Final do Projeto
+almox/
+├── app.py                # Código principal
+├── requirements.txt      # Bibliotecas (pip freeze > requirements.txt)
+└── img/                  # Pasta para fotos (opcional)
+Com este tutorial, seu sistema estará completo! Se precisar de ajustes, estou à disposição. 
