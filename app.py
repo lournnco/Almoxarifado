@@ -2,9 +2,9 @@ import sys
 import mysql.connector
 from mysql.connector import Error
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
-    QLabel, QTableWidget, QTableWidgetItem, QPushButton,
-    QLineEdit, QListWidget, QRadioButton, QButtonGroup, QMessageBox
+    QApplication, QWidget, QGridLayout, QVBoxLayout, QHBoxLayout,
+    QGroupBox, QLabel, QTableWidget, QTableWidgetItem, QPushButton,
+    QLineEdit, QListWidget, QRadioButton, QMessageBox
 )
 from PyQt6.QtGui import QPixmap
 from datetime import datetime
@@ -18,684 +18,419 @@ DB_HOST = "localhost"
 DB_PORT = 3306
 
 
-def get_data_hora_brasilia():
-    fuso = timezone("America/Sao_Paulo")
-    agora = datetime.now(fuso)
-    return agora.strftime("%d/%m/%Y %H:%M:%S")
-
-
 class AlmoxarifadoApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Sistema de Almoxarifado")
-        self.setGeometry(100, 100, 800, 800)
-        self.matricula_selecionada = None
-        main_layout = QVBoxLayout()
+        self.setWindowTitle("Sistema de Almoxarifado - Liberato")
+        self.showMaximized()
 
-        self.criar_grupo_pesquisa(main_layout)
-        self.criar_grupo_pesquisa_componente(main_layout)
-        self.criar_grupo_detalhes(main_layout)
-        self.criar_grupo_emprestimos(main_layout)
+        main_layout = QGridLayout()
+
+        self.criar_grupo_detalhes()
+        self.criar_grupo_pesquisa()
+        self.criar_grupo_pesquisa_componente()
+        self.criar_grupo_emprestimos()
+
+        main_layout.addWidget(self.group_detalhes, 0, 0)
+        main_layout.addWidget(self.group_pesquisa, 0, 1)
+        main_layout.addWidget(self.group_pesquisa_componente, 1, 0, 1, 2)
+        main_layout.addWidget(self.group_emprestimos, 2, 0, 1, 2)
+
+        main_layout.setRowStretch(0, 1)
+        main_layout.setRowStretch(1, 1)
+        main_layout.setRowStretch(2, 3)
+        main_layout.setColumnStretch(0, 1)
+        main_layout.setColumnStretch(1, 1)
 
         self.setLayout(main_layout)
-        self.set_cor_fundo("#ffffff")
+        self.matricula_selecionada = None
 
-    def criar_grupo_pesquisa_componente(self, layout):
-        """Cria o grupo de pesquisa de componentes"""
-        group = QGroupBox("Pesquisar Componente")
-        vbox = QVBoxLayout()
+    # 🔸 Grupo Detalhes Aluno
+    def criar_grupo_detalhes(self):
+        self.group_detalhes = QGroupBox("Detalhes do Aluno")
+        layout = QHBoxLayout()
+
+        self.foto_label = QLabel()
+        self.foto_label.setPixmap(QPixmap("default.png").scaled(100, 100))
+        self.foto_label.setFixedSize(100, 100)
+        layout.addWidget(self.foto_label)
+
+        info = QVBoxLayout()
+        self.label_matricula = QLabel("Matrícula: -")
+        self.label_nome = QLabel("Nome: -")
+        self.label_email = QLabel("E-mail: -")
+        self.label_turma = QLabel("Turma: -")
+        info.addWidget(self.label_matricula)
+        info.addWidget(self.label_nome)
+        info.addWidget(self.label_email)
+        info.addWidget(self.label_turma)
+
+        layout.addLayout(info)
+        self.group_detalhes.setLayout(layout)
+
+    # 🔸 Grupo Pesquisa Aluno
+    def criar_grupo_pesquisa(self):
+        self.group_pesquisa = QGroupBox("Pesquisar Aluno")
+        layout = QVBoxLayout()
+
+        self.pesquisa_input = QLineEdit()
+        self.pesquisa_input.setPlaceholderText("Digite matrícula ou nome")
+        layout.addWidget(self.pesquisa_input)
+
+        self.botao_pesquisa = QPushButton("Pesquisar")
+        self.botao_pesquisa.clicked.connect(self.pesquisar_aluno)
+        layout.addWidget(self.botao_pesquisa)
+
+        self.lista_alunos = QListWidget()
+        self.lista_alunos.itemClicked.connect(self.mostrar_detalhes_aluno)
+        layout.addWidget(self.lista_alunos)
+
+        self.group_pesquisa.setLayout(layout)
+
+    # 🔸 Grupo Pesquisa Componente
+    def criar_grupo_pesquisa_componente(self):
+        self.group_pesquisa_componente = QGroupBox("Pesquisar Componente")
+        layout = QVBoxLayout()
 
         self.pesquisa_componente_input = QLineEdit()
         self.pesquisa_componente_input.setPlaceholderText(
             "Digite nome ou código do componente"
         )
-        vbox.addWidget(self.pesquisa_componente_input)
+        layout.addWidget(self.pesquisa_componente_input)
 
-        self.pesquisa_tipo_group = QButtonGroup()
-        hbox = QHBoxLayout()
-
+        tipo_layout = QHBoxLayout()
         self.radio_nome = QRadioButton("Por Nome")
         self.radio_nome.setChecked(True)
-        self.pesquisa_tipo_group.addButton(self.radio_nome)
-        hbox.addWidget(self.radio_nome)
-
         self.radio_codigo = QRadioButton("Por Código")
-        self.pesquisa_tipo_group.addButton(self.radio_codigo)
-        hbox.addWidget(self.radio_codigo)
-
-        vbox.addLayout(hbox)
+        tipo_layout.addWidget(self.radio_nome)
+        tipo_layout.addWidget(self.radio_codigo)
+        layout.addLayout(tipo_layout)
 
         self.botao_pesquisa_componente = QPushButton("Buscar Componente")
         self.botao_pesquisa_componente.clicked.connect(
             self.pesquisar_componente
         )
-        vbox.addWidget(self.botao_pesquisa_componente)
+        layout.addWidget(self.botao_pesquisa_componente)
 
         self.lista_componentes = QListWidget()
         self.lista_componentes.itemDoubleClicked.connect(
             self.selecionar_componente
         )
-        vbox.addWidget(self.lista_componentes)
+        layout.addWidget(self.lista_componentes)
 
-        group.setLayout(vbox)
-        layout.addWidget(group)
+        self.group_pesquisa_componente.setLayout(layout)
 
-    def pesquisar_componente(self):
-        termo = self.pesquisa_componente_input.text().strip()
-
-        if not termo:
-            self.lista_componentes.clear()
-            self.lista_componentes.addItem(
-                "Digite um termo para pesquisar"
-            )
-            return
-
-        try:
-            conn = mysql.connector.connect(
-                host=DB_HOST,
-                user=DB_USER,
-                password=DB_PASSWORD,
-                database=DB_NAME
-            )
-            cursor = conn.cursor()
-
-            if self.radio_nome.isChecked():
-                query = """
-                    SELECT id, nome, quantidade
-                    FROM componentes
-                    WHERE LOWER(nome) LIKE LOWER(%s)
-                    ORDER BY nome
-                """
-                param = f"%{termo}%"
-            else:
-                if not termo.isdigit():
-                    self.lista_componentes.clear()
-                    self.lista_componentes.addItem(
-                        "Código deve ser numérico"
-                    )
-                    return
-
-                query = """
-                    SELECT id, nome, quantidade
-                    FROM componentes
-                    WHERE id = %s
-                """
-                param = int(termo)
-
-            cursor.execute(query, (param,))
-            resultados = cursor.fetchall()
-            self.lista_componentes.clear()
-
-            if resultados:
-                for id_comp, nome, qtd in resultados:
-                    self.lista_componentes.addItem(
-                        f"{id_comp} - {nome} (Estoque: {qtd})"
-                    )
-            else:
-                self.lista_componentes.addItem(
-                    "Nenhum componente encontrado"
-                )
-
-            cursor.close()
-            conn.close()
-
-        except Error as e:
-            self.lista_componentes.clear()
-            self.lista_componentes.addItem(
-                f"Erro na pesquisa: {str(e)}"
-            )
-
-    def selecionar_componente(self, item):
-        """Quando um componente é selecionado na lista"""
-        texto = item.text()
-        try:
-            id_componente = texto.split(" - ")[0]
-            self.input_componente.setText(id_componente)
-            self.input_quantidade.setFocus()
-        except (AttributeError, IndexError) as e:
-            QMessageBox.warning(
-                self,
-                "Aviso",
-                f"Erro ao selecionar componente: {str(e)}"
-            )
-
-    def criar_grupo_pesquisa(self, layout):
-        self.group_pesquisa = QGroupBox("Pesquisar Aluno")
-        pesquisa_layout = QVBoxLayout()
-
-        self.pesquisa_input = QLineEdit()
-        self.pesquisa_input.setPlaceholderText(
-            "Digite a matrícula ou nome do aluno"
-        )
-        pesquisa_layout.addWidget(self.pesquisa_input)
-
-        self.botao_pesquisa = QPushButton("Pesquisar")
-        self.botao_pesquisa.clicked.connect(self.pesquisar_aluno)
-        pesquisa_layout.addWidget(self.botao_pesquisa)
-
-        self.lista_alunos = QListWidget()
-        self.lista_alunos.itemClicked.connect(
-            self.mostrar_detalhes_aluno
-        )
-        pesquisa_layout.addWidget(self.lista_alunos)
-
-        self.group_pesquisa.setLayout(pesquisa_layout)
-        layout.addWidget(self.group_pesquisa)
-
-    def criar_grupo_detalhes(self, layout):
-        self.group_detalhes = QGroupBox("Detalhes do Aluno")
-        detalhes_layout = QHBoxLayout()
-
-        self.foto_label = QLabel()
-        self.foto_label.setPixmap(
-            QPixmap("default.png").scaled(100, 100)
-        )
-        self.foto_label.setFixedSize(100, 100)
-        detalhes_layout.addWidget(self.foto_label)
-
-        self.info_layout = QVBoxLayout()
-
-        self.label_matricula = QLabel("Matrícula: -")
-        self.label_nome = QLabel("Nome: -")
-        self.label_email = QLabel("E-mail: -")
-
-        self.info_layout.addWidget(self.label_matricula)
-        self.info_layout.addWidget(self.label_nome)
-        self.info_layout.addWidget(self.label_email)
-
-        detalhes_layout.addLayout(self.info_layout)
-        self.group_detalhes.setLayout(detalhes_layout)
-        layout.addWidget(self.group_detalhes)
-
-    def criar_grupo_emprestimos(self, layout):
-        self.group_emprestimos = QGroupBox("Empréstimos")
-        emprestimos_layout = QVBoxLayout()
+    # 🔸 Grupo Empréstimos
+    def criar_grupo_emprestimos(self):
+        self.group_emprestimos = QGroupBox("Lista de Empréstimos")
+        layout = QVBoxLayout()
 
         self.tabela_emprestimos = QTableWidget()
         self.tabela_emprestimos.setColumnCount(5)
         self.tabela_emprestimos.setHorizontalHeaderLabels(
             ["Quantidade", "Código", "Nome", "Retirada", "Devolução"]
         )
+        layout.addWidget(self.tabela_emprestimos)
 
-        col_widths = [90, 90, 200, 140, 140]
-        for i, w in enumerate(col_widths):
-            self.tabela_emprestimos.setColumnWidth(i, w)
-
-        emprestimos_layout.addWidget(self.tabela_emprestimos)
-
-        self.botao_devolver = QPushButton("Registrar Devolução")
-        self.botao_devolver.clicked.connect(
-            self.registrar_devolucao
-        )
-        emprestimos_layout.addWidget(self.botao_devolver)
-
+        form = QHBoxLayout()
         self.input_componente = QLineEdit()
-        self.input_componente.setPlaceholderText("Nome ou ID do componente")
-
+        self.input_componente.setPlaceholderText("ID ou nome do componente")
         self.input_quantidade = QLineEdit()
         self.input_quantidade.setPlaceholderText("Quantidade")
-
         self.botao_adicionar = QPushButton("Adicionar Empréstimo")
-        self.botao_adicionar.clicked.connect(
-            self.adicionar_emprestimo
-        )
+        self.botao_adicionar.clicked.connect(self.adicionar_emprestimo)
+        form.addWidget(self.input_componente)
+        form.addWidget(self.input_quantidade)
+        form.addWidget(self.botao_adicionar)
+        layout.addLayout(form)
 
-        form_layout = QHBoxLayout()
-        form_layout.addWidget(self.input_componente)
-        form_layout.addWidget(self.input_quantidade)
-        form_layout.addWidget(self.botao_adicionar)
+        self.botao_devolver = QPushButton("Registrar Devolução")
+        self.botao_devolver.clicked.connect(self.registrar_devolucao)
+        layout.addWidget(self.botao_devolver)
 
-        emprestimos_layout.addLayout(form_layout)
-        self.group_emprestimos.setLayout(emprestimos_layout)
-        layout.addWidget(self.group_emprestimos)
+        self.group_emprestimos.setLayout(layout)
 
-    def set_cor_fundo_verde(self):
-        self.group_detalhes.setStyleSheet(
-            "QGroupBox { background-color: #d0f0c0; }"
-        )
-
-    def set_cor_fundo(self, cor_hex):
-        self.group_detalhes.setStyleSheet(
-            f"QGroupBox {{ background-color: {cor_hex}; }}"
-        )
-
+    # 🔍 Pesquisa Aluno
     def pesquisar_aluno(self):
         termo = self.pesquisa_input.text().strip()
-        if not termo:
-            self.lista_alunos.clear()
-            self.lista_alunos.addItem(
-                "Digite algo para pesquisar..."
-            )
-            return
+        self.lista_alunos.clear()
 
         try:
             conn = mysql.connector.connect(
-                host=DB_HOST,
-                user=DB_USER,
-                password=DB_PASSWORD,
-                database=DB_NAME,
-                port=DB_PORT,
+                host=DB_HOST, user=DB_USER, password=DB_PASSWORD,
+                database=DB_NAME, port=DB_PORT
             )
-            cur = conn.cursor()
+            cursor = conn.cursor()
 
-            termo_lower = termo.lower()
-            query = (
+            cursor.execute(
                 "SELECT matricula, nome FROM alunos "
-                "WHERE LOWER(matricula) LIKE %s OR LOWER(nome) LIKE %s"
+                "WHERE matricula LIKE %s OR nome LIKE %s",
+                (f"%{termo}%", f"%{termo}%")
             )
-            cur.execute(query, (f"%{termo_lower}%", f"%{termo_lower}%"))
-            resultados = cur.fetchall()
-
-            self.lista_alunos.clear()
+            resultados = cursor.fetchall()
 
             if resultados:
-                for matricula, nome in resultados:
-                    self.lista_alunos.addItem(
-                        f"{matricula} - {nome}"
-                    )
+                for mat, nome in resultados:
+                    self.lista_alunos.addItem(f"{mat} - {nome}")
             else:
-                self.lista_alunos.addItem(
-                    "Nenhum aluno encontrado."
-                )
+                self.lista_alunos.addItem("Nenhum aluno encontrado.")
 
-            cur.close()
+            cursor.close()
             conn.close()
-
         except Error as e:
-            self.lista_alunos.clear()
-            self.lista_alunos.addItem(f"Erro: {e}")
+            QMessageBox.critical(self, "Erro", f"Erro na pesquisa: {e}")
 
+    # 📄 Mostrar Detalhes Aluno + Carregar Empréstimos
     def mostrar_detalhes_aluno(self, item):
         matricula = item.text().split(" - ")[0]
         self.matricula_selecionada = matricula
 
         try:
             conn = mysql.connector.connect(
-                host=DB_HOST,
-                user=DB_USER,
-                password=DB_PASSWORD,
-                database=DB_NAME,
-                port=DB_PORT,
+                host=DB_HOST, user=DB_USER, password=DB_PASSWORD,
+                database=DB_NAME, port=DB_PORT
             )
-            cur = conn.cursor()
+            cursor = conn.cursor()
 
-            cur.execute(
-                "SELECT nome, email, foto FROM alunos WHERE matricula = %s",
-                (matricula,),
+            cursor.execute(
+                "SELECT nome, email, turma, foto "
+                "FROM alunos WHERE matricula = %s",
+                (matricula,)
             )
-            aluno = cur.fetchone()
+            aluno = cursor.fetchone()
 
             if aluno:
-                nome, email, foto = aluno
-
-                self.label_matricula.setText(
-                    f"Matrícula: {matricula}"
-                )
+                nome, email, turma, foto_bytes = aluno
+                self.label_matricula.setText(f"Matrícula: {matricula}")
                 self.label_nome.setText(f"Nome: {nome}")
                 self.label_email.setText(f"E-mail: {email}")
+                self.label_turma.setText(f"Turma: {turma}")
 
-                if foto:
+                # Carregar foto
+                if foto_bytes:
                     pixmap = QPixmap()
-                    if pixmap.loadFromData(foto):
-                        self.foto_label.setPixmap(
-                            pixmap.scaled(100, 100)
-                        )
-                    else:
-                        self.foto_label.setPixmap(
-                            QPixmap("default.png").scaled(100, 100)
-                        )
+                    pixmap.loadFromData(foto_bytes)
+                    pixmap = pixmap.scaled(
+                        self.foto_label.width(), self.foto_label.height()
+                    )
+                    self.foto_label.setPixmap(pixmap)
                 else:
+                    # Sem foto, usa imagem padrão
                     self.foto_label.setPixmap(
-                        QPixmap("default.png").scaled(100, 100)
+                        QPixmap("default.png").scaled(
+                            self.foto_label.width(), self.foto_label.height()
+                        )
                     )
 
-                self.atualizar_cor_fundo_por_quantidade(matricula)
                 self.carregar_emprestimos(matricula)
-            else:
-                self.label_matricula.setText("Matrícula: -")
-                self.label_nome.setText("Nome: -")
-                self.label_email.setText("E-mail: -")
 
-                self.foto_label.setPixmap(
-                    QPixmap("default.png").scaled(100, 100)
-                )
-                self.set_cor_fundo_verde()
-
-            cur.close()
+            cursor.close()
             conn.close()
-
         except Error as e:
-            self.label_matricula.setText(f"Erro: {e}")
+            QMessageBox.critical(self, "Erro", f"Erro ao buscar aluno: {e}")
 
-    def atualizar_cor_fundo_por_quantidade(self, matricula):
+    # 🔍 Pesquisa Componente
+    def pesquisar_componente(self):
+        termo = self.pesquisa_componente_input.text().strip()
+        self.lista_componentes.clear()
+
         try:
             conn = mysql.connector.connect(
-                host=DB_HOST,
-                user=DB_USER,
-                password=DB_PASSWORD,
-                database=DB_NAME,
-                port=DB_PORT,
+                host=DB_HOST, user=DB_USER, password=DB_PASSWORD,
+                database=DB_NAME, port=DB_PORT
             )
-            cur = conn.cursor()
+            cursor = conn.cursor()
 
-            query = """
-                SELECT COALESCE(SUM(e.quantidade), 0)
-                FROM emprestimos e
-                JOIN alunos a ON e.aluno_id = a.id
-                WHERE a.matricula = %s AND e.data_devolucao IS NULL
-            """
-            cur.execute(query, (matricula,))
-            total = cur.fetchone()[0]
-
-            if total == 0:
-                cor = "#ffffff"  # Branco - nenhum empréstimo
-            elif 1 <= total <= 9:
-                cor = "#d0f0c0"  # Verde claro - situação normal
-            elif 10 <= total <= 14:
-                cor = "#f0e68c"  # Amarelo claro - atenção
+            if self.radio_nome.isChecked():
+                cursor.execute(
+                    "SELECT id, nome FROM componentes WHERE nome LIKE %s",
+                    (f"%{termo}%",)
+                )
             else:
-                cor = "#f08080"  # Vermelho claro - situação crítica
+                cursor.execute(
+                    "SELECT id, nome FROM componentes WHERE id = %s",
+                    (termo,)
+                )
 
-            stylesheet = (
-                f"QGroupBox {{ "
-                f"background-color: {cor}; "
-                f"border: 2px solid {self.escurecer_cor(cor)}; "
-                f"}}"
-            )
-            self.group_detalhes.setStyleSheet(stylesheet)
+            resultados = cursor.fetchall()
 
-            cur.close()
+            if resultados:
+                for cid, nome in resultados:
+                    self.lista_componentes.addItem(
+                        f"{cid} - {nome}"
+                    )
+            else:
+                self.lista_componentes.addItem(
+                    "Nenhum componente encontrado."
+                )
+
+            cursor.close()
             conn.close()
-
         except Error as e:
-            print(f"Erro ao atualizar cor: {e}")
-            self.group_detalhes.setStyleSheet(
-                "QGroupBox { "
-                "background-color: #d0f0c0; "
-                "border: 2px solid #a0d0a0; "
-                "}"
-            )
+            QMessageBox.critical(self, "Erro", f"Erro na pesquisa: {e}")
 
-    def escurecer_cor(self, cor_hex, fator=0.8):
-        """Escurece uma cor HEX para usar na borda"""
-        cor_hex = cor_hex.lstrip('#')
-        rgb = tuple(int(cor_hex[i:i+2], 16) for i in (0, 2, 4))
-        escuro = tuple(int(c * fator) for c in rgb)
-        return '#%02x%02x%02x' % escuro
+    # 🎯 Selecionar componente
+    def selecionar_componente(self, item):
+        texto = item.text()
+        id_comp = texto.split(" - ")[0]
+        self.input_componente.setText(id_comp)
+        self.input_quantidade.setFocus()
 
+    # 🔄 Carregar Empréstimos
     def carregar_emprestimos(self, matricula):
+        self.tabela_emprestimos.setRowCount(0)
+
         try:
             conn = mysql.connector.connect(
-                host=DB_HOST,
-                user=DB_USER,
-                password=DB_PASSWORD,
-                database=DB_NAME,
-                port=DB_PORT,
+                host=DB_HOST, user=DB_USER, password=DB_PASSWORD,
+                database=DB_NAME, port=DB_PORT
             )
-            cur = conn.cursor()
+            cursor = conn.cursor()
 
-            cur.execute(
-                """
-                SELECT e.quantidade,
-                        c.id,
-                        c.nome,
-                        e.data_emprestimo,
-                        e.hora_emprestimo,
-                        e.data_devolucao,
-                        e.hora_devolucao
-                FROM emprestimos e
-                JOIN alunos a ON e.aluno_id = a.id
-                JOIN componentes c ON e.componente_id = c.id
-                WHERE a.matricula = %s
-                ORDER BY e.data_emprestimo DESC,
-                         e.hora_emprestimo DESC
-                """,
-                (matricula,),
+            cursor.execute(
+                """SELECT e.quantidade, c.id, c.nome,
+                   e.data_emprestimo, e.data_devolucao
+                   FROM emprestimos e
+                   JOIN alunos a ON e.aluno_id = a.id
+                   JOIN componentes c ON e.componente_id = c.id
+                   WHERE a.matricula = %s""",
+                (matricula,)
             )
-            registros = cur.fetchall()
 
-            self.tabela_emprestimos.setRowCount(len(registros))
-
-            for row, (
-                qtde,
-                codigo,
-                nome,
-                data_ret,
-                hora_ret,
-                data_dev,
-                hora_dev,
-            ) in enumerate(registros):
-                retirada = (
-                    f"{data_ret} {hora_ret}"
-                    if data_ret and hora_ret
-                    else ""
-                )
-                devolucao = (
-                    f"{data_dev} {hora_dev}"
-                    if data_dev and hora_dev
-                    else ""
-                )
-
+            registros = cursor.fetchall()
+            for row, (qtd, cid, nome, data_emp, data_dev) in enumerate(
+                registros
+            ):
+                self.tabela_emprestimos.insertRow(row)
                 self.tabela_emprestimos.setItem(
-                    row, 0, QTableWidgetItem(str(qtde))
+                    row, 0, QTableWidgetItem(str(qtd))
                 )
                 self.tabela_emprestimos.setItem(
-                    row, 1, QTableWidgetItem(str(codigo))
+                    row, 1, QTableWidgetItem(str(cid))
                 )
                 self.tabela_emprestimos.setItem(
                     row, 2, QTableWidgetItem(nome)
                 )
                 self.tabela_emprestimos.setItem(
-                    row, 3, QTableWidgetItem(retirada)
+                    row, 3, QTableWidgetItem(str(data_emp))
                 )
                 self.tabela_emprestimos.setItem(
-                    row, 4, QTableWidgetItem(devolucao)
+                    row, 4,
+                    QTableWidgetItem(str(data_dev) if data_dev else "")
                 )
 
-            cur.close()
+            cursor.close()
             conn.close()
-
         except Error as e:
-            print(f"Erro ao carregar empréstimos: {e}")
+            QMessageBox.critical(
+                self, "Erro", f"Erro ao carregar empréstimos: {e}"
+            )
 
+    # ➕ Adicionar Empréstimo
     def adicionar_emprestimo(self):
         if not self.matricula_selecionada:
-            QMessageBox.warning(
-                self,
-                "Aviso",
-                "Selecione um aluno primeiro"
-            )
+            QMessageBox.warning(self, "Aviso", "Selecione um aluno.")
             return
 
-        componente = self.input_componente.text().strip()
-        quantidade = self.input_quantidade.text().strip()
+        comp = self.input_componente.text().strip()
+        qtd = self.input_quantidade.text().strip()
 
-        if not componente:
+        if not comp or not qtd.isdigit():
             QMessageBox.warning(
-                self,
-                "Aviso",
-                "Digite o código ou nome do componente"
-            )
-            return
-
-        if not quantidade.isdigit() or int(quantidade) <= 0:
-            QMessageBox.warning(
-                self,
-                "Aviso",
-                "Quantidade deve ser um número positivo"
+                self, "Aviso", "Preencha corretamente os dados."
             )
             return
 
         try:
             conn = mysql.connector.connect(
-                host=DB_HOST,
-                user=DB_USER,
-                password=DB_PASSWORD,
-                database=DB_NAME,
-                port=DB_PORT,
+                host=DB_HOST, user=DB_USER, password=DB_PASSWORD,
+                database=DB_NAME, port=DB_PORT
             )
-            cur = conn.cursor()
+            cursor = conn.cursor()
 
-            # Verifica se é número (ID) ou texto (nome)
-            if componente.isdigit():
-                cur.execute(
-                    "SELECT id, quantidade FROM componentes WHERE id = %s",
-                    (componente,)
-                )
-            else:
-                cur.execute(
-                    """SELECT id, quantidade FROM componentes
-                    WHERE nome LIKE %s LIMIT 1""",
-                    (f"%{componente}%",)
-                )
-
-            resultado = cur.fetchone()
-            if not resultado:
-                QMessageBox.warning(
-                    self,
-                    "Aviso",
-                    "Componente não encontrado"
-                )
-                return
-
-            componente_id, qtd_disponivel = resultado
-
-            if int(quantidade) > qtd_disponivel:
-                QMessageBox.warning(
-                    self,
-                    "Aviso",
-                    f"Quantidade indisponível (estoque: {qtd_disponivel})"
-                )
-                return
-
-            # Obtém ID do aluno
-            cur.execute(
+            cursor.execute(
                 "SELECT id FROM alunos WHERE matricula = %s",
-                (self.matricula_selecionada,),
+                (self.matricula_selecionada,)
             )
-            aluno_id = cur.fetchone()[0]
+            aluno_id = cursor.fetchone()[0]
 
-            # Registra o empréstimo
+            cursor.execute(
+                "SELECT id FROM componentes "
+                "WHERE id = %s OR nome LIKE %s",
+                (comp, f"%{comp}%")
+            )
+            comp_data = cursor.fetchone()
+
+            if not comp_data:
+                QMessageBox.warning(
+                    self, "Aviso", "Componente não encontrado."
+                )
+                return
+
+            comp_id = comp_data[0]
+
             agora = datetime.now(timezone("America/Sao_Paulo"))
-            data = agora.date()
-            hora = agora.time().replace(microsecond=0)
 
-            cur.execute(
-                """INSERT INTO emprestimos
-                (aluno_id, componente_id,
-                quantidade, data_emprestimo, hora_emprestimo)
-                VALUES (%s, %s, %s, %s, %s)""",
-                (aluno_id, componente_id, quantidade, data, hora),
-            )
-
-            # Atualiza o estoque
-            cur.execute(
-                "UPDATE componentes SET quantidade = quantidade"
-                "- %s WHERE id = %s",
-                (quantidade, componente_id)
+            cursor.execute(
+                """INSERT INTO emprestimos (
+                    aluno_id, componente_id, quantidade, data_emprestimo
+                ) VALUES (%s, %s, %s, %s)""",
+                (aluno_id, comp_id, int(qtd), agora.date())
             )
 
             conn.commit()
-            cur.close()
-            conn.close()
-
-            # Atualiza a interface
             self.carregar_emprestimos(self.matricula_selecionada)
-            self.atualizar_cor_fundo_por_quantidade(
-                self.matricula_selecionada
+            QMessageBox.information(
+                self, "Sucesso", "Empréstimo registrado!"
             )
+
             self.input_componente.clear()
             self.input_quantidade.clear()
 
-            QMessageBox.information(
-                self,
-                "Sucesso",
-                "Empréstimo registrado!"
-            )
-
+            cursor.close()
+            conn.close()
         except Error as e:
-            QMessageBox.critical(
-                self,
-                "Erro",
-                f"Erro ao adicionar empréstimo: {e}"
-            )
+            QMessageBox.critical(self, "Erro", f"Erro: {e}")
 
+    # 🔁 Registrar Devolução
     def registrar_devolucao(self):
-        if not self.matricula_selecionada:
-            return
-
         linha = self.tabela_emprestimos.currentRow()
         if linha < 0:
+            QMessageBox.warning(
+                self, "Aviso", "Selecione um empréstimo."
+            )
             return
 
-        codigo = self.tabela_emprestimos.item(linha, 1).text()
+        cod = self.tabela_emprestimos.item(linha, 1).text()
 
         try:
             conn = mysql.connector.connect(
-                host=DB_HOST,
-                user=DB_USER,
-                password=DB_PASSWORD,
-                database=DB_NAME,
-                port=DB_PORT,
+                host=DB_HOST, user=DB_USER, password=DB_PASSWORD,
+                database=DB_NAME, port=DB_PORT
             )
-            cur = conn.cursor()
+            cursor = conn.cursor()
 
-            cur.execute(
-                "SELECT id FROM alunos WHERE matricula = %s",
-                (self.matricula_selecionada,),
+            cursor.execute(
+                """UPDATE emprestimos SET data_devolucao = %s
+                   WHERE componente_id = %s
+                   AND aluno_id = (
+                       SELECT id FROM alunos WHERE matricula = %s
+                   )
+                   AND data_devolucao IS NULL""",
+                (datetime.now(timezone("America/Sao_Paulo")).date(),
+                 cod, self.matricula_selecionada)
             )
-            aluno_id_row = cur.fetchone()
-            if not aluno_id_row:
-                return
-            aluno_id = aluno_id_row[0]
 
-            agora = datetime.now(timezone("America/Sao_Paulo"))
-            data_devolucao = agora.date()
-            hora_devolucao = agora.time().replace(microsecond=0)
-
-            query = (
-                "UPDATE emprestimos "
-                "SET data_devolucao = %s, hora_devolucao = %s "
-                "WHERE aluno_id = %s AND componente_id = %s "
-                "AND data_devolucao IS NULL LIMIT 1"
-            )
-            cur.execute(
-                query,
-                (
-                    data_devolucao,
-                    hora_devolucao,
-                    aluno_id,
-                    codigo,
-                ),
-            )
             conn.commit()
-
-            # Atualiza a quantidade disponível do componente
-            cur.execute(
-                "SELECT quantidade FROM emprestimos "
-                "WHERE aluno_id = %s AND componente_id = %s "
-                "AND data_devolucao = %s LIMIT 1",
-                (aluno_id, codigo, data_devolucao)
-            )
-            quantidade = cur.fetchone()[0]
-
-            cur.execute(
-                "UPDATE componentes SET quantidade = quantidade + %s "
-                "WHERE id = %s",
-                (quantidade, codigo)
-            )
-            conn.commit()
-
-            cur.close()
-            conn.close()
-
             self.carregar_emprestimos(self.matricula_selecionada)
-            self.atualizar_cor_fundo_por_quantidade(
-                self.matricula_selecionada
+            QMessageBox.information(
+                self, "Sucesso", "Devolução registrada!"
             )
 
+            cursor.close()
+            conn.close()
         except Error as e:
-            print(f"Erro ao registrar devolução: {e}")
+            QMessageBox.critical(self, "Erro", f"Erro: {e}")
 
 
 if __name__ == "__main__":
